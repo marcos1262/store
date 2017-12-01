@@ -68,3 +68,8 @@ type ProductQueryData struct {
 	Start    int
 	Quantity int
 }
+
+// Client connected to RPC
+type Client struct {
+
+}

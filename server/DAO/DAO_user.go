@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"store/model"
-	"store/store"
+	"store/util"
 )
 
 func CreateUser(u model.User) (int, error) {
@@ -21,7 +21,7 @@ func CreateUser(u model.User) (int, error) {
 
 	res, err := db.Exec("INSERT INTO user (name, login, pass) VALUES (?, ?, ?)",
 		u.Name, u.Login, u.Pass)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	id, err := res.LastInsertId()
 
@@ -48,18 +48,18 @@ func ReadUser(u model.User, start int, quantity int) (users []model.User, err er
 
 	rows, err := db.Query(query)
 	defer rows.Close()
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	for rows.Next() {
 		u = model.User{}
 
 		err := rows.Scan(&u.Iduser, &u.Name, &u.Login, &u.Pass)
-		store.CheckErr(err)
+		util.CheckErr(err)
 
 		users = append(users, u)
 	}
 	err = rows.Err()
-	store.CheckErr(err)
+	util.CheckErr(err)
 	return
 }
 
@@ -93,7 +93,7 @@ func UpdateUser(u model.User) (err error) {
 	query += "WHERE iduser = '" + strconv.Itoa(u.Iduser) + "'"
 
 	_, err = db.Exec(query)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	return
 }
@@ -104,7 +104,7 @@ func DeleteUser(u model.User) error {
 	}
 
 	_, err := db.Exec("DELETE FROM user WHERE iduser = ?", u.Iduser)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	return err
 }

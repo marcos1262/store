@@ -3,7 +3,7 @@ package DAO
 import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
-	"store/store"
+	"store/util"
 )
 
 var db *sql.DB
@@ -11,7 +11,7 @@ var db *sql.DB
 func InitializeDB() {
 	var err error
 	db, err = sql.Open("mysql", "root:toor@/store")
-	store.CheckMortalErr(err)
+	util.CheckMortalErr(err)
 }
 
 func CloseDB() {

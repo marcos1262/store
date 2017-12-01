@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"store/model"
-	"store/store"
+	"store/util"
 )
 
 func CreateProduct(p model.Product) (int, error) {
@@ -17,7 +17,7 @@ func CreateProduct(p model.Product) (int, error) {
 	}
 
 	res, err := db.Exec("INSERT INTO product (name, price) VALUES (?, ?)", p.Name, p.Price)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	id, err := res.LastInsertId()
 
@@ -41,18 +41,18 @@ func ReadProduct(p model.Product, start int, quantity int) (products []model.Pro
 
 	rows, err := db.Query(query)
 	defer rows.Close()
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	for rows.Next() {
 		p = model.Product{}
 
 		err := rows.Scan(&p.Idproduct, &p.Name, &p.Price)
-		store.CheckErr(err)
+		util.CheckErr(err)
 
 		products = append(products, p)
 	}
 	err = rows.Err()
-	store.CheckErr(err)
+	util.CheckErr(err)
 	return
 }
 
@@ -80,7 +80,7 @@ func UpdateProduct(p model.Product) (err error) {
 	query += "WHERE idproduct = '" + strconv.Itoa(p.Idproduct) + "'"
 
 	_, err = db.Exec(query)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	return
 }
@@ -91,7 +91,7 @@ func DeleteProduct(p model.Product) error {
 	}
 
 	_, err := db.Exec("DELETE FROM product WHERE idproduct = ?", p.Idproduct)
-	store.CheckErr(err)
+	util.CheckErr(err)
 
 	return err
 }
