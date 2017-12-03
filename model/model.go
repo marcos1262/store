@@ -3,6 +3,9 @@ package model
 import (
 	"strconv"
 	"fmt"
+	"net"
+	"crypto/rsa"
+	"bufio"
 )
 
 // Product on database
@@ -29,7 +32,7 @@ func (p Product) StringLine() string {
 }
 
 func ProductHeader() string {
-	return "         \tId\tName\t\t\tPrice"
+	return "         \tId\tName\tPrice"
 }
 
 // User on database
@@ -62,14 +65,37 @@ func UserHeader() string {
 	return "      \tId\tName\t\t\tLogin\t\t\tPass"
 }
 
+// Client connected to RPC
+type Client struct {
+	Conn       net.Conn
+	PublicKey  *rsa.PublicKey
+	SessionKey *[32]byte
+	In         *bufio.Reader
+	Out        *bufio.Writer
+}
+
 // RPC Auxiliar type
 type ProductQueryData struct {
-	Product  Product
+	Product  *Product
 	Start    int
 	Quantity int
 }
 
-// Client connected to RPC
-type Client struct {
+// RPC Auxiliar type
+type ProductQueryResult struct {
+	Products []Product
+	Total    int
+}
 
+// RPC Auxiliar type
+type UserQueryData struct {
+	User     *User
+	Start    int
+	Quantity int
+}
+
+// RPC Auxiliar type
+type UserQueryResult struct {
+	Users []User
+	Total int
 }

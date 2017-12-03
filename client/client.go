@@ -2,19 +2,33 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/rpc"
 	"os"
 	"store/model"
 	"crypto/rsa"
-	"crypto/rand"
-	"store/util"
 	"store/cryptopasta"
-	"crypto/sha256"
-	"encoding/hex"
+	"store/util"
 	"net"
-	"bufio"
+	"log"
+	"time"
 )
+
+var (
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+	sessionKey = &[32]byte{}
+)
+
+func connect(service string) *rpc.Client {
+	log.Println("Connecting to the server")
+
+	conn, err := net.Dial("tcp", service)
+	util.CheckMortalErr(err)
+
+	authenticate(conn)
+
+	return rpc.NewClient(conn)
+}
 
 func main() {
 	if len(os.Args) != 2 {
@@ -23,74 +37,183 @@ func main() {
 	}
 	service := os.Args[1]
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	util.CheckMortalErr(err)
-	publicKey := &key.PublicKey
-
-	conn, err := net.Dial("tcp", service)
+	log.Println("Generating keys for cryptography")
+	var err error
+	privateKey, publicKey, err = cryptopasta.GenerateKeys(6144)
 	util.CheckMortalErr(err)
 
-	in := bufio.NewReader(conn)
-	out := bufio.NewWriter(conn)
+	server := connect(service)
 
-	// Send public key, receive server's public key
-	var serverKey []byte
-	product := model.Product{Name: "test1", Price: 2.5}
-	err = server.Call("RPC_auth.ExchangePublicKey", publicKey, &serverKey)
-	util.CheckErr(err)
-	println("Created", product.String())
+	var opt string
+	for opt == "" {
+		print("\n# PRODUCTS MANAGEMENT:\n" +
+			"1 - New Product\n" +
+			"2 - Show All\n" +
+			"3 - Find Product\n" +
+			"4 - Update Product\n" +
+			"5 - Delete Product\n" +
+			"6 - Exit\n" +
+			"Choose an option: ")
+		fmt.Scan(&opt)
 
-	// Send auth info encrypted, receive session key or error (if not authenticate)
+	Options:
+		switch opt {
+		case "1":
+			var id int
+			product := model.Product{}
 
+			print("Type the name: ")
+			fmt.Scanln(&product.Name)
 
+			print("Type the price: ")
+			fmt.Scanln(&product.Price)
 
-	server, err := rpc.Dial("tcp", service)
-	util.CheckMortalErr(err)
+			for {
+				err = server.Call("RPC_product.Create", product, &id)
+				if !util.CheckErr(err) {
+					break
+				}
+				if err == rpc.ErrShutdown {
+					server = connect(service)
+				} else {
+					break Options
+				}
+			}
+			product.Idproduct = id
 
+			println("Created", product.String())
 
+			break
+		case "2":
+			res := model.ProductQueryResult{}
+			queryData := model.ProductQueryData{
+				Product: &model.Product{},
+				Start:   0, Quantity: 100,
+			}
 
-	encrypted, err := cryptopasta.EncryptOAEP(publicKey, []byte("Yeah!"))
-	util.CheckMortalErr(err)
-	println(hex.EncodeToString(encrypted))
+			for {
+				err = server.Call("RPC_product.Read", queryData, &res)
+				if !util.CheckErr(err) {
+					break
+				}
+				if err == rpc.ErrShutdown {
+					server = connect(service)
+				} else {
+					break Options
+				}
+			}
 
-	decrypted, err := cryptopasta.DecryptOAEP(key, encrypted)
-	util.CheckMortalErr(err)
-	println(string(decrypted))
+			// TODO pagination
+			page := 1
+			totalPages := int(res.Total / len(res.Products))
+			println("\nShowing page", page, "of", totalPages)
+			println(model.ProductHeader())
 
-	sessionKey := sha256.Sum256([]byte("password"))
-	println(hex.EncodeToString(sessionKey[:]))
+			for _, p := range res.Products {
+				println(p.StringLine())
+			}
 
-	encrypted, err = cryptopasta.EncryptAES([]byte("Yeah!"), &sessionKey)
-	println(hex.EncodeToString(encrypted))
+			break
+		case "3":
+			res := model.ProductQueryResult{}
+			product := model.Product{}
 
-	decrypted, err = cryptopasta.DecryptAES(encrypted, &sessionKey)
-	println(string(decrypted))
+			print("Type the Id (optional): ")
+			fmt.Scanln(&product.Idproduct)
 
-	os.Exit(0)
-	//////////////////////////////////////////////////////////////////////////////////
+			print("Type the name (optional): ")
+			fmt.Scanln(&product.Name)
 
-	var id int
-	product := model.Product{Name: "test1", Price: 2.5}
-	err = server.Call("RPC_product.Create", product, &id)
-	util.CheckErr(err)
-	println("Created", product.String())
+			print("Type the price (optional): ")
+			fmt.Scanln(&product.Price)
 
-	var res []model.Product
-	queryData := model.ProductQueryData{model.Product{Idproduct: id}, 0, 1}
-	err = server.Call("RPC_product.Read", queryData, &res)
-	util.CheckErr(err)
-	if res[0].Name != "test1" {
-		log.Fatal("Error on reading product name")
+			queryData := model.ProductQueryData{
+				Product: &product,
+				Start:   0, Quantity: 100,
+			}
+
+			for {
+				err = server.Call("RPC_product.Read", queryData, &res)
+				if !util.CheckErr(err) {
+					break
+				}
+				if err == rpc.ErrShutdown {
+					server = connect(service)
+				} else {
+					break Options
+				}
+			}
+
+			// TODO pagination
+			page := 1
+			totalPages := int(res.Total / len(res.Products))
+			println("\nShowing page", page, "of", totalPages)
+			println(model.ProductHeader())
+
+			for _, p := range res.Products {
+				println(p.StringLine())
+			}
+
+			break
+		case "4":
+			var nothing int
+			product := model.Product{}
+
+			print("Type the Id: ")
+			fmt.Scanln(&product.Idproduct)
+
+			print("Type the name (optional): ")
+			fmt.Scanln(&product.Name)
+
+			print("Type the price (optional): ")
+			fmt.Scanln(&product.Price)
+
+			for {
+				err = server.Call("RPC_product.Update", product, &nothing)
+				if !util.CheckErr(err) {
+					break
+				}
+				if err == rpc.ErrShutdown {
+					server = connect(service)
+				} else {
+					break Options
+				}
+			}
+
+			println("Updated", product.String())
+
+			break
+		case "5":
+			var nothing int
+			product := model.Product{}
+
+			print("Type the Id: ")
+			fmt.Scanln(&product.Idproduct)
+
+			for {
+				err = server.Call("RPC_product.Delete", product, &nothing)
+				if !util.CheckErr(err) {
+					break
+				}
+				if err == rpc.ErrShutdown {
+					server = connect(service)
+				} else {
+					break Options
+				}
+			}
+
+			println("Deleted", product.String())
+
+			break
+		case "6":
+			println("Bye bye")
+			return
+			break
+		default:
+			println("This is not a valid option")
+		}
+
+		time.Sleep(3 * time.Second)
+		opt = ""
 	}
-	println("Read", res[0].String())
-
-	var nothing int
-	product = model.Product{Idproduct: id, Name: "test"}
-	err = server.Call("RPC_product.Update", product, &nothing)
-	util.CheckErr(err)
-	println("Updated", product.String())
-
-	err = server.Call("RPC_product.Delete", product, &nothing)
-	util.CheckErr(err)
-	println("Deleted", product.String())
 }

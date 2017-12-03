@@ -8,7 +8,7 @@ import (
 	"store/util"
 )
 
-func CreateProduct(p model.Product) (int, error) {
+func CreateProduct(p *model.Product) (int, error) {
 	if p.Name == "" {
 		return 0, errors.New("name is obligatory")
 	}
@@ -24,39 +24,46 @@ func CreateProduct(p model.Product) (int, error) {
 	return int(id), err
 }
 
-func ReadProduct(p model.Product, start int, quantity int) (products []model.Product, err error) {
-	query := "SELECT * FROM product WHERE TRUE "
+func ReadProduct(p *model.Product, start int, quantity int) (products []model.Product, total int, err error) {
+	conditions := ""
 
 	if p.Idproduct != 0 {
-		query += "AND idproduct='" + fmt.Sprint(p.Idproduct) + "' "
+		conditions += "AND idproduct='" + fmt.Sprint(p.Idproduct) + "' "
 	}
 	if p.Name != "" {
-		query += "AND name LIKE '%" + p.Name + "%' "
+		conditions += "AND name LIKE '%" + p.Name + "%' "
 	}
 	if p.Price != 0 {
-		query += "AND price='" + fmt.Sprint(p.Price) + "' "
+		conditions += "AND price='" + fmt.Sprint(p.Price) + "' "
 	}
 
-	query += "LIMIT " + strconv.Itoa(start) + "," + strconv.Itoa(quantity)
+	query := "SELECT COUNT(*) FROM product WHERE TRUE " + conditions
+
+	row := db.QueryRow(query)
+	err = row.Scan(&total)
+	util.CheckErr(err)
+
+	query = "SELECT * FROM product WHERE TRUE " + conditions +
+		"LIMIT " + strconv.Itoa(start) + "," + strconv.Itoa(quantity)
 
 	rows, err := db.Query(query)
 	defer rows.Close()
 	util.CheckErr(err)
 
 	for rows.Next() {
-		p = model.Product{}
+		p = &model.Product{}
 
 		err := rows.Scan(&p.Idproduct, &p.Name, &p.Price)
 		util.CheckErr(err)
 
-		products = append(products, p)
+		products = append(products, *p)
 	}
 	err = rows.Err()
 	util.CheckErr(err)
 	return
 }
 
-func UpdateProduct(p model.Product) (err error) {
+func UpdateProduct(p *model.Product) (err error) {
 	initialQuery := "UPDATE product SET "
 	query := initialQuery
 
@@ -85,7 +92,7 @@ func UpdateProduct(p model.Product) (err error) {
 	return
 }
 
-func DeleteProduct(p model.Product) error {
+func DeleteProduct(p *model.Product) error {
 	if p.Idproduct == 0 {
 		return errors.New("product id is obligatory")
 	}

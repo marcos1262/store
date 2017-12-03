@@ -8,7 +8,7 @@ import (
 	"store/util"
 )
 
-func CreateUser(u model.User) (int, error) {
+func CreateUser(u *model.User) (int, error) {
 	if u.Name == "" {
 		return 0, errors.New("name is obligatory")
 	}
@@ -28,42 +28,49 @@ func CreateUser(u model.User) (int, error) {
 	return int(id), err
 }
 
-func ReadUser(u model.User, start int, quantity int) (users []model.User, err error) {
-	query := "SELECT * FROM user WHERE TRUE "
+func ReadUser(u *model.User, start int, quantity int) (users []model.User, total int, err error) {
+	conditions := ""
 
 	if u.Iduser != 0 {
-		query += "AND iduser='" + fmt.Sprint(u.Iduser) + "' "
+		conditions += "AND iduser='" + fmt.Sprint(u.Iduser) + "' "
 	}
 	if u.Name != "" {
-		query += "AND name LIKE '%" + u.Name + "%' "
+		conditions += "AND name LIKE '%" + u.Name + "%' "
 	}
 	if u.Login != "" {
-		query += "AND login = '" + u.Login + "' "
+		conditions += "AND login = '" + u.Login + "' "
 	}
 	if u.Pass != "" {
-		query += "AND pass = '" + u.Pass + "' "
+		conditions += "AND pass = '" + u.Pass + "' "
 	}
 
-	query += "LIMIT " + strconv.Itoa(start) + "," + strconv.Itoa(quantity)
+	query := "SELECT COUNT(*) FROM user WHERE TRUE " + conditions
+
+	row := db.QueryRow(query)
+	err = row.Scan(&total)
+	util.CheckErr(err)
+
+	query = "SELECT * FROM user WHERE TRUE " + conditions +
+		"LIMIT " + strconv.Itoa(start) + "," + strconv.Itoa(quantity)
 
 	rows, err := db.Query(query)
 	defer rows.Close()
 	util.CheckErr(err)
 
 	for rows.Next() {
-		u = model.User{}
+		u = &model.User{}
 
 		err := rows.Scan(&u.Iduser, &u.Name, &u.Login, &u.Pass)
 		util.CheckErr(err)
 
-		users = append(users, u)
+		users = append(users, *u)
 	}
 	err = rows.Err()
 	util.CheckErr(err)
 	return
 }
 
-func UpdateUser(u model.User) (err error) {
+func UpdateUser(u *model.User) (err error) {
 	initialQuery := "UPDATE user SET "
 	query := initialQuery
 
@@ -98,7 +105,7 @@ func UpdateUser(u model.User) (err error) {
 	return
 }
 
-func DeleteUser(u model.User) error {
+func DeleteUser(u *model.User) error {
 	if u.Iduser == 0 {
 		return errors.New("user id is obligatory")
 	}

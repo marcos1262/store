@@ -7,6 +7,13 @@ import (
 	"store/server/RPC"
 	"log"
 	"store/server/DAO"
+	"crypto/rsa"
+	"store/cryptopasta"
+)
+
+var (
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
 )
 
 func main() {
@@ -20,10 +27,16 @@ func main() {
 	DAO.InitializeDB()
 	defer DAO.CloseDB()
 
+	log.Println("Generating keys for cryptography")
+	privateKey, publicKey, err = cryptopasta.GenerateKeys(2048)
+	util.CheckMortalErr(err)
+
 	log.Println("Registering RPC CRUDs")
-	rpc.Register(new(RPC.RPC_auth))
 	rpc.Register(new(RPC.RPC_product))
 	rpc.Register(new(RPC.RPC_user))
+
+	log.Println("Managing clients...")
+	go manageClients()
 
 	log.Println("Listening to clients on port 54321...")
 	for {
@@ -31,8 +44,9 @@ func main() {
 		if util.CheckErr(err) {
 			continue
 		}
-		authenticateClient(conn)
-
-		rpc.ServeConn(conn)
+		go func() {
+			authenticateClient(conn)
+			rpc.ServeConn(conn)
+		}()
 	}
 }

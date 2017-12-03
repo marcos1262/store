@@ -1,0 +1,6 @@
+TODO
+
+* encrypt data sent by RPC (symmetric with session key)
+* to distinct type of users (Admin or other)
+* Users CRUD for Admin
+* Pagination for queries

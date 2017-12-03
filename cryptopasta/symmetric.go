@@ -20,17 +20,6 @@ import (
 	"io"
 )
 
-// NewEncryptionKey generates a random 256-bit key for EncryptAES() and
-// DecryptAES(). It panics if the source of randomness fails.
-func NewEncryptionKey() *[32]byte {
-	key := [32]byte{}
-	_, err := io.ReadFull(rand.Reader, key[:])
-	if err != nil {
-		panic(err)
-	}
-	return &key
-}
-
 // EncryptAES encrypts data using 256-bit AES-GCM.  This both hides the content of
 // the data and provides a check that it hasn't been altered. Output takes the
 // form nonce|ciphertext|tag where '|' indicates concatenation.
